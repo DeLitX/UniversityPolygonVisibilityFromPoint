@@ -48,10 +48,8 @@ data class Polygon(var edges: List<Edge> = listOf(), var points: List<Point> = l
             } else {
                 edges[pointIndex - 1]
             },
-            if (pointIndex == points.size - 1) {
-                edges[0]
-            } else {
-                edges[pointIndex]
-            }
+            edges[pointIndex]
         )
+
+    fun getAdjacentEdges(point: Point): Pair<Edge, Edge> = getAdjacentEdges(points.indexOf(point))
 }

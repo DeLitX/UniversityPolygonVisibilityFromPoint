@@ -8,86 +8,258 @@ import kotlin.math.sign
 
 fun calculateVisibility(polygon: Polygon, observationPoint: Point): EdgesByVisibility {
     try {
-        val shurelyInvisibleEdges = mutableListOf<Edge>()
-        val maybeVisibleEdges = mutableListOf<Edge>()
+        var shurelyInvisibleEdges = mutableListOf<Edge>()
+        var transformedEdgesList = mutableListOf<Edge?>()
+        var nearestPoint: Point = polygon.points[0]
         for (edge in polygon.edges) {
             val equation = LineEquation(edge)
             //https://gamedev.ru/code/forum/?id=19270
             if (equation.distanceToPoint(observationPoint) < 0) {
                 shurelyInvisibleEdges.add(edge)
+                if (transformedEdgesList.isEmpty() || transformedEdgesList.last() != null) {
+                    transformedEdgesList.add(null)
+                }
             } else {
-                maybeVisibleEdges.add(edge)
+                transformedEdgesList.add(edge)
             }
         }
-        var index1 = 0
-        while (index1 < maybeVisibleEdges.size) {
-            val ray1 = Edge(observationPoint, maybeVisibleEdges[index1].point1)
-            val ray2 = Edge(observationPoint, maybeVisibleEdges[index1].point2)
-            val vector1 = Vector(ray1.point1, ray1.point2).normalized()
-            val vector2 = Vector(ray2.point1, ray2.point2).normalized()
-            if (vector1 == vector2) {
-                shurelyInvisibleEdges.add(maybeVisibleEdges[index1])
-                maybeVisibleEdges.removeAt(index1)
-                continue
-            }
-            var point1Covered = false
-            var point2Covered = false
-            for (index2 in 0 until maybeVisibleEdges.size) {
-                if (index1 == index2) {
-                    continue
-                }
-                val edge = maybeVisibleEdges[index2]
-                if (doIntersect(ray1, edge) && !(edge.point1 == ray1.point2 || edge.point2 == ray1.point2)) {
-                    point1Covered = true
-                }
-                if (doIntersect(ray2, edge) && !(edge.point1 == ray2.point2 || edge.point2 == ray2.point2)) {
-                    point2Covered = true
-                }
-                if (point1Covered && point2Covered) {
-                    shurelyInvisibleEdges.add(maybeVisibleEdges[index1])
-                    maybeVisibleEdges.removeAt(index1)
-                    index1--
-                    break
-                }
-            }
-            if (!(point1Covered && point2Covered) && (point1Covered || point2Covered)) {
-                val intersectionPoints = mutableListOf<Float>()
-                val edge = maybeVisibleEdges[index1]
-                for (index2 in 0 until maybeVisibleEdges.size) {
-                    if (index1 == index2) {
-                        continue
-                    }
-                    val point1 = intersectRayWithSegment(Edge(observationPoint, maybeVisibleEdges[index2].point1), edge)
-                    val point2 = intersectRayWithSegment(Edge(observationPoint, maybeVisibleEdges[index2].point2), edge)
-                    point1?.let {
-                        intersectionPoints.add(it)
-                    }
-                    point2?.let {
-                        intersectionPoints.add(it)
+        for (point in polygon.points) {
+            if (Edge(point, observationPoint).length() <
+                Edge(nearestPoint, observationPoint).length()
+            ) {
+                var isVisible = true
+                for (edge in transformedEdgesList) {
+                    if (
+                        edge != null &&
+                        doIntersect(Edge(observationPoint, point), edge) &&
+                        !(edge.point1 == point || edge.point2 == point)
+                    ) {
+                        isVisible = false
+                        break
                     }
                 }
-                if(point2Covered){
-                    val pointT = intersectionPoints.minOf { it }
-                    val point = edge.point1 + (edge.point2 - edge.point1) * pointT
-                    shurelyInvisibleEdges.add(Edge(point, edge.point2))
-                    maybeVisibleEdges.removeAt(index1)
-                    maybeVisibleEdges.add(index1, Edge(edge.point1, point))
-                }else{
-                    val pointT = intersectionPoints.maxOf { it }
-                    val point = edge.point1 + (edge.point2 - edge.point1) * pointT
-                    shurelyInvisibleEdges.add(Edge(point, edge.point1))
-                    maybeVisibleEdges.removeAt(index1)
-                    maybeVisibleEdges.add(index1, Edge(edge.point2, point))
+                if (isVisible) {
+                    nearestPoint = point
                 }
             }
-            index1++
         }
-        val result = EdgesByVisibility(maybeVisibleEdges, shurelyInvisibleEdges)
+
+        val pair = polygon.getAdjacentEdges(nearestPoint)
+        val previousEdge = if (transformedEdgesList.contains(pair.first)) {
+            pair.first
+        } else {
+            null
+        }
+        val nextEdge = if (transformedEdgesList.contains(pair.second)) {
+            pair.second
+        } else {
+            null
+        }
+
+        var moveDirection: Int
+        val startEdge: Edge
+        if (nextEdge != null) {
+            moveDirection = 1
+            startEdge = nextEdge
+        } else {
+            moveDirection = -1
+            //it does not null because at least one of edges of the nearest point must be visible
+            if (previousEdge == null) {
+                true
+            }
+            startEdge = previousEdge!!
+        }
+        val startIndex = transformedEdgesList.indexOf(startEdge)
+        var currentEdgeIndex = startIndex
+        var canStop = false
+        var stepsAmount = 0
+        while (true) {
+            val edge = transformedEdgesList[currentEdgeIndex]
+            if (stepsAmount >= transformedEdgesList.size && canStop) {
+                break
+            }
+            if (edge == null) {
+                val temp = removeInvisibleEdgesNearInvisibleEdge(
+                    observationPoint,
+                    ModifiedEdges(transformedEdgesList, shurelyInvisibleEdges, currentEdgeIndex)
+                )
+                transformedEdgesList = temp.transformedEdges.toMutableList()
+                shurelyInvisibleEdges = temp.invisibleEdges.toMutableList()
+                currentEdgeIndex = temp.index
+            }
+            currentEdgeIndex += moveDirection
+            if (currentEdgeIndex < 0) {
+                currentEdgeIndex = transformedEdgesList.lastIndex
+            } else if (currentEdgeIndex > transformedEdgesList.lastIndex) {
+                currentEdgeIndex = 0
+            }
+            canStop = true
+            stepsAmount++
+        }
+        val visibleEdges: List<Edge> = transformedEdgesList.filterNotNull()
+        val result = EdgesByVisibility(visibleEdges, shurelyInvisibleEdges)
         return result
     } catch (e: Exception) {
         e.printStackTrace()
         return EdgesByVisibility(listOf(), listOf())
     }
+}
+
+data class ModifiedEdges(val transformedEdges: List<Edge?>, val invisibleEdges: List<Edge>, val index: Int)
+
+fun removeInvisibleEdgesNearInvisibleEdge(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
+    val modifiedForward = removeNextInvisibleEdges(observationPoint, oldEdges)
+    val modifiedBackward = removePreviousInvisibleEdges(observationPoint, modifiedForward)
+    return modifiedBackward
+}
+
+fun removePreviousInvisibleEdges(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
+    val newTransformedEdges = oldEdges.transformedEdges.toMutableList()
+    val newInvisibleEdges = oldEdges.invisibleEdges.toMutableList()
+    var currentIndex = oldEdges.index
+    while (newTransformedEdges.isNotEmpty()) {
+        val edge = newTransformedEdges[currentIndex]
+        if (edge == null) {
+            newTransformedEdges.removeAt(currentIndex)
+            currentIndex--
+            if (currentIndex == -1) {
+                currentIndex = newTransformedEdges.lastIndex
+            }
+            continue
+        }
+        val isEndCovered = checkPointVisible(observationPoint, edge.point2, newTransformedEdges)
+        if (!isEndCovered) {
+            break
+        }
+        val isStartCovered = checkPointVisible(observationPoint, edge.point1, newTransformedEdges)
+        if (!isStartCovered) {
+            val (visibleEdge, invisibleEdge) = splitEdgeToVisibleAndInvisible(
+                observationPoint,
+                edge,
+                isStartCovered,
+                newTransformedEdges
+            )
+            if (invisibleEdge != null) {
+                newTransformedEdges.removeAt(currentIndex)
+                newTransformedEdges.add(currentIndex, visibleEdge)
+                newInvisibleEdges.add(invisibleEdge)
+            }
+            break
+        } else {
+            newTransformedEdges.removeAt(currentIndex)
+            newInvisibleEdges.add(edge)
+            currentIndex--
+        }
+        if (currentIndex == -1) {
+            currentIndex = newTransformedEdges.lastIndex
+        }
+    }
+    currentIndex++
+    newTransformedEdges.add(currentIndex, null)
+    return ModifiedEdges(newTransformedEdges, newInvisibleEdges, currentIndex)
+}
+
+fun removeNextInvisibleEdges(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
+    val newTransformedEdges = oldEdges.transformedEdges.toMutableList()
+    val newInvisibleEdges = oldEdges.invisibleEdges.toMutableList()
+    var currentIndex = oldEdges.index
+    while (newTransformedEdges.isNotEmpty()) {
+        val edge = newTransformedEdges[currentIndex]
+        if (edge == null) {
+            newTransformedEdges.removeAt(currentIndex)
+            if (currentIndex == newTransformedEdges.size) {
+                currentIndex = 0
+            }
+            continue
+        }
+        val isStartCovered = checkPointVisible(observationPoint, edge.point1, newTransformedEdges)
+        if (!isStartCovered) {
+            break
+        }
+        val isEndCovered = checkPointVisible(observationPoint, edge.point2, newTransformedEdges)
+        if (!isEndCovered) {
+            val (visibleEdge, invisibleEdge) = splitEdgeToVisibleAndInvisible(
+                observationPoint,
+                edge,
+                isStartCovered,
+                newTransformedEdges
+            )
+            if (invisibleEdge != null) {
+                newTransformedEdges.removeAt(currentIndex)
+                newTransformedEdges.add(currentIndex, visibleEdge)
+                newInvisibleEdges.add(invisibleEdge)
+            }
+            break
+        } else {
+            newTransformedEdges.removeAt(currentIndex)
+            newInvisibleEdges.add(edge)
+        }
+        if (currentIndex == newTransformedEdges.size) {
+            currentIndex = 0
+        }
+    }
+    newTransformedEdges.add(currentIndex, null)
+    return ModifiedEdges(newTransformedEdges, newInvisibleEdges, currentIndex)
+}
+
+fun checkPointVisible(
+    observationPoint: Point,
+    pointToCheck: Point,
+    edges: List<Edge?>
+): Boolean {
+    var pointCovered = false
+    val ray = Edge(observationPoint, pointToCheck)
+    for (edge in edges) {
+        if (edge == null) {
+            continue
+        }
+        if (doIntersect(ray, edge) && !(edge.point1 == pointToCheck || edge.point2 == pointToCheck)) {
+            pointCovered = true
+            break
+        }
+    }
+    return pointCovered
+}
+
+data class SplittedEdge(val visibleEdge: Edge, val invisibleEdge: Edge?)
+
+fun splitEdgeToVisibleAndInvisible(
+    observationPoint: Point,
+    edge: Edge,
+    startPointVisible: Boolean,
+    transformedEdges: List<Edge?>
+): SplittedEdge {
+    val intersectionPoints = mutableListOf<Float>()
+    for (visibleEdge in transformedEdges) {
+        if (visibleEdge == null) {
+            continue
+        }
+        val ray1 = Edge(observationPoint, visibleEdge.point1)
+        val ray2 = Edge(observationPoint, visibleEdge.point2)
+        val point1 = intersectRayWithSegment(ray1, edge)
+        val point2 = intersectRayWithSegment(ray2, edge)
+        point1?.let {
+            if (!doIntersect(ray1, edge)) {
+                intersectionPoints.add(it)
+            }
+        }
+        point2?.let {
+            if (!doIntersect(ray2, edge)) {
+                intersectionPoints.add(it)
+            }
+        }
+    }
+    if (intersectionPoints.isEmpty()) {
+        return SplittedEdge(edge, null)
+    }
+    val pointT = intersectionPoints.minOf { it }
+    val point = edge.point1 + (edge.point2 - edge.point1) * pointT
+    return if (!startPointVisible) {
+        SplittedEdge(visibleEdge = Edge(edge.point1, point), invisibleEdge = Edge(point, edge.point2))
+    } else {
+        SplittedEdge(visibleEdge = Edge(edge.point2, point), invisibleEdge = Edge(point, edge.point1))
+    }
+
 }
 
 fun intersectRayWithSegment(ray: Edge, segment: Edge): Float? {
