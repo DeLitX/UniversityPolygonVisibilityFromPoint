@@ -56,7 +56,7 @@ fun calculateVisibility(polygon: Polygon, observationPoint: Point): EdgesByVisib
             null
         }
 
-        var moveDirection: Int
+        val moveDirection: Int
         val startEdge: Edge
         if (nextEdge != null) {
             moveDirection = 1
@@ -64,9 +64,6 @@ fun calculateVisibility(polygon: Polygon, observationPoint: Point): EdgesByVisib
         } else {
             moveDirection = -1
             //it does not null because at least one of edges of the nearest point must be visible
-            if (previousEdge == null) {
-                true
-            }
             startEdge = previousEdge!!
         }
         val startIndex = transformedEdgesList.indexOf(startEdge)
@@ -291,31 +288,6 @@ fun intersectRayWithSegment(ray: Edge, segment: Edge): Float? {
         return null
     }
     return Edge(segment.point1, intersection).length() / segment.length()
-}
-
-//https://rootllama.wordpress.com/2014/06/20/ray-line-segment-intersection-test-in-2d/
-fun intersectRayWithLineSegment(ray: Edge, segment: Edge): Float? {
-    val tempVector = Vector(ray.point1, ray.point2).normalized()
-    return intersectRayWithLineSegment(
-        ray.point1.toVector(),
-        tempVector,
-        segment.point1.toVector(),
-        segment.point2.toVector()
-    )
-}
-
-fun intersectRayWithLineSegment(o: Vector, d: Vector, a: Vector, b: Vector): Float? {
-    val v1 = o - a
-    val v2 = b - a
-    val v3 = Vector(-d.x, d.y)
-    val denom = v2.dot(v3)
-    val t1 = abs(v2.cross(v1)) / denom
-    val t2 = v1.dot(v3) / denom
-    return if (t2 <= 0 || t2 >= 1 || t1 <= 0) {
-        null
-    } else {
-        t2
-    }
 }
 
 fun doIntersect(edge1: Edge, edge2: Edge): Boolean = doIntersect(edge1.point1, edge1.point2, edge2.point1, edge2.point2)
