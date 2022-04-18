@@ -78,7 +78,6 @@ fun main() {
                     if (isModifying.value) {
                         val polygon = Polygon(points = currentPoints.value.map { mapPixelToPoint(it) })
                         DrawPolygon(polygon)
-                        //println(polygon)
                     } else {
                         if (polygon.value == null) {
                             polygon.value = Polygon(points = currentPoints.value.map { mapPixelToPoint(it) })
@@ -86,14 +85,12 @@ fun main() {
                             println(polygon)
                         }
                         polygon.value?.let {
-                            //DrawPolygon(it)
                             if (pixelObservationPoint.value == null && observationPoint.value != null) {
                                 pixelObservationPoint.value = mapPointToPixel(observationPoint.value!!)
                             }
                             val pixelPointToOffset = mapPixelToPoint(pixelObservationPoint.value!!)
                             if (pixelPointToOffset != observationPoint.value) {
                                 observationPoint.value = pixelPointToOffset
-                                //println(pixelPointToOffset)
                                 recalculateVisibleEdges()
                             }
                             DrawEdges(visibleEdges.value, SolidColor(Color(255, 0, 0, 255)))

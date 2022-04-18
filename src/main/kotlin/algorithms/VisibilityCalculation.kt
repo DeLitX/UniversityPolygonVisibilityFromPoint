@@ -102,15 +102,15 @@ fun calculateVisibility(polygon: Polygon, observationPoint: Point): EdgesByVisib
     }
 }
 
-data class ModifiedEdges(val transformedEdges: List<Edge?>, val invisibleEdges: List<Edge>, val index: Int)
+private data class ModifiedEdges(val transformedEdges: List<Edge?>, val invisibleEdges: List<Edge>, val index: Int)
 
-fun removeInvisibleEdgesNearInvisibleEdge(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
+private fun removeInvisibleEdgesNearInvisibleEdge(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
     val modifiedForward = removeNextInvisibleEdges(observationPoint, oldEdges)
     val modifiedBackward = removePreviousInvisibleEdges(observationPoint, modifiedForward)
     return modifiedBackward
 }
 
-fun removePreviousInvisibleEdges(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
+private fun removePreviousInvisibleEdges(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
     val newTransformedEdges = oldEdges.transformedEdges.toMutableList()
     val newInvisibleEdges = oldEdges.invisibleEdges.toMutableList()
     var currentIndex = oldEdges.index
@@ -156,7 +156,7 @@ fun removePreviousInvisibleEdges(observationPoint: Point, oldEdges: ModifiedEdge
     return ModifiedEdges(newTransformedEdges, newInvisibleEdges, currentIndex)
 }
 
-fun removeNextInvisibleEdges(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
+private fun removeNextInvisibleEdges(observationPoint: Point, oldEdges: ModifiedEdges): ModifiedEdges {
     val newTransformedEdges = oldEdges.transformedEdges.toMutableList()
     val newInvisibleEdges = oldEdges.invisibleEdges.toMutableList()
     var currentIndex = oldEdges.index
@@ -199,7 +199,7 @@ fun removeNextInvisibleEdges(observationPoint: Point, oldEdges: ModifiedEdges): 
     return ModifiedEdges(newTransformedEdges, newInvisibleEdges, currentIndex)
 }
 
-fun checkPointVisible(
+private fun checkPointVisible(
     observationPoint: Point,
     pointToCheck: Point,
     edges: List<Edge?>
@@ -218,9 +218,9 @@ fun checkPointVisible(
     return pointCovered
 }
 
-data class SplittedEdge(val visibleEdge: Edge, val invisibleEdge: Edge?)
+private data class SplittedEdge(val visibleEdge: Edge, val invisibleEdge: Edge?)
 
-fun splitEdgeToVisibleAndInvisible(
+private fun splitEdgeToVisibleAndInvisible(
     observationPoint: Point,
     edge: Edge,
     startPointVisible: Boolean,
@@ -259,7 +259,7 @@ fun splitEdgeToVisibleAndInvisible(
 
 }
 
-fun intersectRayWithSegment(ray: Edge, segment: Edge): Float? {
+private fun intersectRayWithSegment(ray: Edge, segment: Edge): Float? {
     val rayLineEquation = LineEquation(ray)
     val segmentLineEquation = LineEquation(segment)
     val intersection = rayLineEquation.intersect(segmentLineEquation)
@@ -290,10 +290,10 @@ fun intersectRayWithSegment(ray: Edge, segment: Edge): Float? {
     return Edge(segment.point1, intersection).length() / segment.length()
 }
 
-fun doIntersect(edge1: Edge, edge2: Edge): Boolean = doIntersect(edge1.point1, edge1.point2, edge2.point1, edge2.point2)
+private fun doIntersect(edge1: Edge, edge2: Edge): Boolean = doIntersect(edge1.point1, edge1.point2, edge2.point1, edge2.point2)
 
 //https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
-fun doIntersect(p1: Point, q1: Point, p2: Point, q2: Point): Boolean {
+private fun doIntersect(p1: Point, q1: Point, p2: Point, q2: Point): Boolean {
     // Find the four orientations needed for general and
     // special cases
     val o1: Int = orientation(p1, q1, p2)
@@ -320,7 +320,7 @@ fun doIntersect(p1: Point, q1: Point, p2: Point, q2: Point): Boolean {
     return false
 }
 
-fun orientation(p: Point, q: Point, r: Point): Int {
+private fun orientation(p: Point, q: Point, r: Point): Int {
     // See https://www.geeksforgeeks.org/orientation-3-ordered-points/
     // for details of below formula.
     val value = (q.y - p.y) * (r.x - q.x) -
@@ -329,7 +329,7 @@ fun orientation(p: Point, q: Point, r: Point): Int {
     return if (value > 0f) 1 else 2 // clock or counterclockwise
 }
 
-fun onSegment(p: Point, q: Point, r: Point): Boolean {
+private fun onSegment(p: Point, q: Point, r: Point): Boolean {
     return q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) &&
             q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y)
 }
